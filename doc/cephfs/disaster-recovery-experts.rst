@@ -21,64 +21,63 @@ Advanced: Metadata repair tools
 Journal export
 --------------
 
-Before attempting dangerous operations, make a copy of the journal like so:
+Before attempting any dangerous operation, make a copy of the journal by
+running the following command:
 
-::
+.. prompt:: bash #
 
-    cephfs-journal-tool journal export backup.bin
-
-Note that this command may not always work if the journal is badly corrupted,
-in which case a RADOS-level copy should be made (http://tracker.ceph.com/issues/9902).
-
+   cephfs-journal-tool journal export backup.bin
 
 Dentry recovery from journal
 ----------------------------
 
 If a journal is damaged or for any reason an MDS is incapable of replaying it,
-attempt to recover what file metadata we can like so:
+attempt to recover file metadata by running the following command:
 
-::
+.. prompt:: bash #
 
-    cephfs-journal-tool event recover_dentries summary
+   cephfs-journal-tool event recover_dentries summary
 
-This command by default acts on MDS rank 0, pass --rank=<n> to operate on other ranks.
+By default, this command acts on MDS rank ``0``. Pass the option ``--rank=<n>``
+to the ``cephfs-journal-tool`` command to operate on other ranks.
 
-This command will write any inodes/dentries recoverable from the journal
-into the backing store, if these inodes/dentries are higher-versioned
-than the previous contents of the backing store.  If any regions of the journal
-are missing/damaged, they will be skipped.
+This command writes all inodes and dentries recoverable from the journal into
+the backing store, but only if these inodes and dentries are higher-versioned
+than the existing contents of the backing store. Any regions of the journal
+that are missing or damaged will be skipped.
 
-Note that in addition to writing out dentries and inodes, this command will update
-the InoTables of each 'in' MDS rank, to indicate that any written inodes' numbers
-are now in use.  In simple cases, this will result in an entirely valid backing
+In addition to writing out dentries and inodes, this command updates the
+InoTables of each ``in`` MDS rank, to indicate that any written inodes' numbers
+are now in use. In simple cases, this will result in an entirely valid backing
 store state.
 
 .. warning::
 
-    The resulting state of the backing store is not guaranteed to be self-consistent,
-    and an online MDS scrub will be required afterwards.  The journal contents
-    will not be modified by this command, you should truncate the journal
+    The resulting state of the backing store is not guaranteed to be
+    self-consistent, and an online MDS scrub will be required afterwards. The
+    journal contents will not be modified by this command. Truncate the journal
     separately after recovering what you can.
 
 Journal truncation
 ------------------
 
-If the journal is corrupt or MDSs cannot replay it for any reason, you can
-truncate it like so:
+Use a command of the following form to truncate any journal that is corrupt or
+that an MDS cannot replay:
 
-::
+.. prompt:: bash #
 
-    cephfs-journal-tool [--rank=<fs_name>:{mds-rank|all}] journal reset --yes-i-really-really-mean-it
+   cephfs-journal-tool [--rank=<fs_name>:{mds-rank|all}] journal reset --yes-i-really-really-mean-it
 
-Specify the filesystem and the MDS rank using the ``--rank`` option when the file system has/had
-multiple active MDS.
+Specify the filesystem and the MDS rank using the ``--rank`` option when the
+file system has or had multiple active MDS daemons.
 
 .. warning::
 
-    Resetting the journal *will* lose metadata unless you have extracted
-    it by other means such as ``recover_dentries``.  It is likely to leave
-    some orphaned objects in the data pool.  It may result in re-allocation
-    of already-written inodes, such that permissions rules could be violated.
+    Resetting the journal *will* cause metadata to be lost unless you have
+    extracted it by other means such as ``recover_dentries``. Resetting the
+    journal is likely to leave orphaned objects in the data pool.  Resetting
+    the journal may result in the re-allocation of already-written inodes,
+    which means that permissions rules could be violated.
 
 MDS table wipes
 ---------------
@@ -86,17 +85,20 @@ MDS table wipes
 After the journal has been reset, it may no longer be consistent with respect
 to the contents of the MDS tables (InoTable, SessionMap, SnapServer).
 
-To reset the SessionMap (erase all sessions), use:
+Use the following command to reset the SessionMap (this will erase all
+sessions):
 
-::
+.. prompt:: bash #
 
     cephfs-table-tool all reset session
 
-This command acts on the tables of all 'in' MDS ranks.  Replace 'all' with an MDS
-rank to operate on that rank only.
+This command acts on the tables of all MDS ranks that are ``in``. To operate
+only on a specified rank, replace ``all`` in the above command with an MDS
+rank.
 
-The session table is the table most likely to need resetting, but if you know you
-also need to reset the other tables then replace 'session' with 'snap' or 'inode'.
+Of all tables, the session table is the table most likely to require a reset.
+If you know that you need also to reset the other tables, then replace
+``session`` with ``snap`` or ``inode``.
 
 MDS map reset
 -------------
@@ -104,7 +106,7 @@ MDS map reset
 Once the in-RADOS state of the file system (i.e. contents of the metadata pool)
 is somewhat recovered, it may be necessary to update the MDS map to reflect
 the contents of the metadata pool.  Use the following command to reset the MDS
-map to a single MDS:
+map to a single MDS daemon:
 
 ::
 
@@ -113,11 +115,12 @@ map to a single MDS:
 Once this is run, any in-RADOS state for MDS ranks other than 0 will be ignored:
 as a result it is possible for this to result in data loss.
 
-One might wonder what the difference is between 'fs reset' and 'fs remove; fs new'.  The
-key distinction is that doing a remove/new will leave rank 0 in 'creating' state, such
-that it would overwrite any existing root inode on disk and orphan any existing files.  In
-contrast, the 'reset' command will leave rank 0 in 'active' state such that the next MDS
-daemon to claim the rank will go ahead and use the existing in-RADOS metadata.
+One might wonder what the difference is between 'fs reset' and 'fs remove; fs
+new'.  The key distinction is that doing a remove/new will leave rank 0 in
+'creating' state, such that it would overwrite any existing root inode on disk
+and orphan any existing files.  In contrast, the 'reset' command will leave
+rank 0 in 'active' state such that the next MDS daemon to claim the rank will
+go ahead and use the existing in-RADOS metadata.
 
 Recovery from missing metadata objects
 --------------------------------------
